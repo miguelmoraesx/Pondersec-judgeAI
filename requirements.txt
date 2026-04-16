@@ -1,0 +1,10 @@
+django
+psycopg2-binary
+google-genai
+groq
+openai
+python-dotenv
+aiohttp
+django-extensions
+werkzeug
+django-sslserver
