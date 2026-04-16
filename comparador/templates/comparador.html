@@ -1,297 +1,667 @@
-<style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PonderSEC JudgeAI · Consulta</title>
 
-    body {
-        font-family: "Space Grotesk", system-ui, sans-serif;
-        background: radial-gradient(circle at top, #051015 0, #02060b 45%, #000000 100%);
-        color: #e5fef6;
-        min-height: 100vh;
-        padding: 30px 20px;
-    }
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background-image:
-            linear-gradient(90deg, rgba(0,255,160,0.05) 1px, transparent 1px),
-            linear-gradient(180deg, rgba(0,255,160,0.05) 1px, transparent 1px);
-        background-size: 40px 40px;
-        opacity: .35;
-        pointer-events: none;
-    }
-
-    body::after {
-        content: "";
-        position: fixed;
-        width: 500px;
-        height: 500px;
-        border-radius: 50%;
-        top: -120px;
-        right: -120px;
-        background: radial-gradient(circle, rgba(0,255,160,.22), transparent 70%);
-        filter: blur(90px);
-        pointer-events: none;
-    }
-
-    .container {
-        max-width: 1300px;
-        margin: auto;
-        position: relative;
-        z-index: 2;
-    }
-
-    .card {
-        background: rgba(11, 20, 29, 0.58);
-        border: 1px solid rgba(0,255,160,.15);
-        border-radius: 18px;
-        padding: 30px;
-        box-shadow: 0 0 40px rgba(0,0,0,.55);
-        backdrop-filter: blur(10px);
-    }
-
-    h1 {
-        font-size: 30px;
-        color: #00ff9f;
-        margin-bottom: 10px;
-        letter-spacing: .02em;
-    }
-
-    p {
-        color: #9bb8ae;
-        margin-bottom: 22px;
-        line-height: 1.6;
-        font-size: 15px;
-    }
-
-    textarea {
-        width: 100%;
-        min-height: 150px;
-        padding: 18px;
-        resize: vertical;
-        border-radius: 12px;
-        background: #050a11;
-        border: 1px solid #1b2635;
-        color: #e5fef6;
-        font-size: 15px;
-        font-family: "Space Grotesk", system-ui, sans-serif;
-        outline: none;
-        transition: .2s ease;
-    }
-
-    textarea::placeholder {
-        color: #6b7b8d;
-    }
-
-    textarea:focus {
-        border-color: #00ff9f;
-        box-shadow: 0 0 10px rgba(0,255,160,.25);
-    }
-
-    .actions {
-        margin-top: 18px;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    button {
-        border: 1px solid rgba(0,255,160,.28);
-        background: rgba(0,255,160,.08);
-        color: #00ff9f;
-        padding: 13px 22px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .05em;
-        transition: .2s ease;
-        font-family: "Space Grotesk", system-ui, sans-serif;
-    }
-
-    button:hover {
-        background: rgba(0,255,160,.15);
-        border-color: #00ff9f;
-        transform: translateY(-1px);
-        box-shadow: 0 0 14px rgba(0,255,160,.18);
-    }
-
-    button:disabled {
-        opacity: .6;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-    .actions button:last-child {
-        color: #c5d9e3;
-        border-color: rgba(255,255,255,.12);
-        background: rgba(255,255,255,.04);
-    }
-
-    .actions button:last-child:hover {
-        background: rgba(255,255,255,.08);
-    }
-
-    .status {
-        margin-top: 18px;
-        font-size: 14px;
-        color: #7df6c2;
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: rgba(0,255,160,.05);
-        border: 1px solid rgba(0,255,160,.12);
-    }
-
-    .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin-top: 24px;
-    }
-
-    .result,
-    .evaluation {
-        background: rgba(5,10,17,.85);
-        border: 1px solid rgba(0,255,160,.12);
-        border-radius: 14px;
-        padding: 18px;
-        min-height: 290px;
-        transition: .2s ease;
-    }
-
-    .result:hover,
-    .evaluation:hover {
-        border-color: rgba(0,255,160,.28);
-        box-shadow: 0 0 18px rgba(0,255,160,.08);
-    }
-
-    .evaluation {
-        min-height: 240px;
-    }
-
-    .result h2,
-    .evaluation h2 {
-        font-size: 19px;
-        color: #e5fef6;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .meta {
-        font-size: 13px;
-        color: #6b7b8d;
-        margin-bottom: 14px;
-    }
-
-    #grokResponse,
-    #geminiResponse,
-    #grokEvaluation,
-    #geminiEvaluation {
-        white-space: pre-wrap;
-        line-height: 1.65;
-        font-size: 15px;
-        color: #d8fff0;
-    }
-
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 5px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 700;
-        background: rgba(0,255,160,.08);
-        border: 1px solid rgba(0,255,160,.18);
-        color: #7df6c2;
-        text-transform: uppercase;
-        letter-spacing: .06em;
-    }
-
-    .label {
-        color: #00ff9f;
-        font-weight: 700;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 12px;
-        overflow: hidden;
-        border-radius: 12px;
-        background: #02060b;
-        border: 1px solid rgba(0,255,160,.12);
-    }
-
-    th, td {
-        padding: 12px;
-        text-align: left;
-        font-size: 14px;
-        border-bottom: 1px solid rgba(255,255,255,.05);
-    }
-
-    th {
-        background: rgba(0,255,160,.06);
-        color: #7df6c2;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-        font-size: 12px;
-    }
-
-    tr:last-child td {
-        border-bottom: none;
-    }
-
-    .score {
-        color: #00ff9f;
-        font-weight: 700;
-    }
-
-    .justification {
-        margin-top: 14px;
-        padding: 14px;
-        border-radius: 12px;
-        background: rgba(0,255,160,.03);
-        border: 1px solid rgba(0,255,160,.12);
-        color: #dffef2;
-        line-height: 1.6;
-        white-space: pre-wrap;
-    }
-
-    @media (max-width: 980px) {
-        .grid {
-            grid-template-columns: 1fr;
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        h1 {
-            font-size: 26px;
+        body {
+            font-family: "Space Grotesk", system-ui, sans-serif;
+            background: radial-gradient(circle at top, #051015 0, #02060b 45%, #000000 100%);
+            color: #e5fef6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .background-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(90deg, rgba(0,255,160,0.06) 1px, transparent 1px),
+                linear-gradient(180deg, rgba(0,255,160,0.06) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .scanline {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.15), rgba(0,0,0,0.7));
+            background-size: 100% 4px;
+            opacity: 0.18;
+            pointer-events: none;
+        }
+
+        .glow-orb {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,255,160,.22), transparent 70%);
+            top: -120px;
+            right: -120px;
+            filter: blur(90px);
+            pointer-events: none;
+        }
+
+        .glow-orb-2 {
+            position: fixed;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,150,255,.15), transparent 70%);
+            bottom: 0;
+            left: -100px;
+            filter: blur(90px);
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 28px;
+            padding: 26px 32px;
+            background: rgba(11, 20, 29, 0.6);
+            border-radius: 16px;
+            border: 1px solid rgba(0,255,160,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: rgba(0,255,160,0.1);
+            border: 1px solid rgba(0,255,160,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            filter: drop-shadow(0 0 8px rgba(0,255,160,0.4));
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .product-name {
+            color: #7df6c2;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .page-title {
+            color: #00ff9f;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .page-subtitle {
+            color: #6b7b8d;
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-back {
+            padding: 12px 22px;
+            background: rgba(0,255,160,0.08);
+            border: 1px solid rgba(0,255,160,0.25);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #00ff9f;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-back:hover {
+            background: rgba(0,255,160,0.15);
+            border-color: #00ff9f;
+            transform: translateY(-1px);
         }
 
         .card {
-            padding: 22px;
+            background: rgba(11, 20, 29, 0.58);
+            border: 1px solid rgba(0,255,160,.15);
+            border-radius: 18px;
+            padding: 30px;
+            box-shadow: 0 0 40px rgba(0,0,0,.55);
+            backdrop-filter: blur(10px);
         }
-    }
 
-    @media (max-width: 600px) {
-        body {
-            padding: 15px;
+        h1 {
+            font-size: 30px;
+            color: #00ff9f;
+            margin-bottom: 10px;
+            letter-spacing: .02em;
+        }
+
+        p {
+            color: #9bb8ae;
+            margin-bottom: 22px;
+            line-height: 1.6;
+            font-size: 15px;
         }
 
         textarea {
-            min-height: 130px;
+            width: 100%;
+            min-height: 150px;
+            padding: 18px;
+            resize: vertical;
+            border-radius: 12px;
+            background: #050a11;
+            border: 1px solid #1b2635;
+            color: #e5fef6;
+            font-size: 15px;
+            font-family: "Space Grotesk", system-ui, sans-serif;
+            outline: none;
+            transition: .2s ease;
         }
 
-        button {
-            width: 100%;
+        textarea::placeholder {
+            color: #6b7b8d;
+        }
+
+        textarea:focus {
+            border-color: #00ff9f;
+            box-shadow: 0 0 10px rgba(0,255,160,.25);
         }
 
         .actions {
-            flex-direction: column;
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-    }
-</style>
+
+        button {
+            border: 1px solid rgba(0,255,160,.28);
+            background: rgba(0,255,160,.08);
+            color: #00ff9f;
+            padding: 13px 22px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            transition: .2s ease;
+            font-family: "Space Grotesk", system-ui, sans-serif;
+        }
+
+        button:hover {
+            background: rgba(0,255,160,.15);
+            border-color: #00ff9f;
+            transform: translateY(-1px);
+            box-shadow: 0 0 14px rgba(0,255,160,.18);
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .actions button:last-child {
+            color: #c5d9e3;
+            border-color: rgba(255,255,255,.12);
+            background: rgba(255,255,255,.04);
+        }
+
+        .actions button:last-child:hover {
+            background: rgba(255,255,255,.08);
+        }
+
+        .status {
+            margin-top: 18px;
+            font-size: 14px;
+            color: #7df6c2;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: rgba(0,255,160,.05);
+            border: 1px solid rgba(0,255,160,.12);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .result,
+        .evaluation {
+            background: rgba(5,10,17,.85);
+            border: 1px solid rgba(0,255,160,.12);
+            border-radius: 14px;
+            padding: 18px;
+            min-height: 290px;
+            transition: .2s ease;
+        }
+
+        .result:hover,
+        .evaluation:hover {
+            border-color: rgba(0,255,160,.28);
+            box-shadow: 0 0 18px rgba(0,255,160,.08);
+        }
+
+        .evaluation {
+            min-height: 240px;
+        }
+
+        .result h2,
+        .evaluation h2 {
+            font-size: 19px;
+            color: #e5fef6;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: #6b7b8d;
+            margin-bottom: 14px;
+        }
+
+        #grokResponse,
+        #geminiResponse,
+        #grokEvaluation,
+        #geminiEvaluation {
+            white-space: pre-wrap;
+            line-height: 1.65;
+            font-size: 15px;
+            color: #d8fff0;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(0,255,160,.08);
+            border: 1px solid rgba(0,255,160,.18);
+            color: #7df6c2;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .label {
+            color: #00ff9f;
+            font-weight: 700;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #02060b;
+            border: 1px solid rgba(0,255,160,.12);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+
+        th {
+            background: rgba(0,255,160,.06);
+            color: #7df6c2;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            font-size: 12px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .score {
+            color: #00ff9f;
+            font-weight: 700;
+        }
+
+        .justification {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(0,255,160,.03);
+            border: 1px solid rgba(0,255,160,.12);
+            color: #dffef2;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        @media (max-width: 980px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .card {
+                padding: 22px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 15px;
+            }
+
+            textarea {
+                min-height: 130px;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .header-actions {
+                width: 100%;
+            }
+
+            .btn-back {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="scanline"></div>
+    <div class="glow-orb"></div>
+    <div class="glow-orb-2"></div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo-icon">🤖</div>
+                <div class="header-title">
+                    <span class="product-name">PonderSEC · JudgeAI</span>
+                    <span class="page-title">Consulta e Avaliação Cruzada</span>
+                    <span class="page-subtitle">Compare respostas e veja uma IA julgando a outra</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <a href="{% url 'menu-consulta' %}" class="btn-back">← Voltar</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h1>Pergunte ao Grok e ao Gemini</h1>
+            <p>
+                Digite uma pergunta, compare as respostas dos dois modelos e visualize a avaliação cruzada entre eles.
+            </p>
+
+            <textarea id="question" placeholder="Ex.: Explique a diferença entre FastAPI e Flask."></textarea>
+
+            <div class="actions">
+                <button id="sendBtn" onclick="sendQuestion()">Enviar pergunta</button>
+                <button onclick="clearResults()">Limpar</button>
+            </div>
+
+            <div class="status" id="status">Pronto para enviar.</div>
+
+            <div class="grid">
+                <div class="result">
+                    <h2>Grok <span class="badge" id="grokModel">-</span></h2>
+                    <div class="meta" id="grokMeta">Sem resposta ainda.</div>
+                    <div id="grokResponse">...</div>
+                </div>
+
+                <div class="result">
+                    <h2>Gemini <span class="badge" id="geminiModel">-</span></h2>
+                    <div class="meta" id="geminiMeta">Sem resposta ainda.</div>
+                    <div id="geminiResponse">...</div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="evaluation">
+                    <h2>Avaliação do Grok sobre a resposta do Gemini</h2>
+                    <div class="meta" id="grokEvalMeta">Sem avaliação ainda.</div>
+                    <div id="grokEvaluation">...</div>
+                </div>
+
+                <div class="evaluation">
+                    <h2>Avaliação do Gemini sobre a resposta do Grok</h2>
+                    <div class="meta" id="geminiEvalMeta">Sem avaliação ainda.</div>
+                    <div id="geminiEvaluation">...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function parseEvaluation(text) {
+            const result = {
+                relevancia: "-",
+                profundidade: "-",
+                acuracia: "-",
+                diretividade: "-",
+                justificativa: text || "-"
+            };
+
+            if (!text || typeof text !== "string") {
+                return result;
+            }
+
+            const rel = text.match(/Relev[aâ]ncia:\s*(\d+)/i);
+            const prof = text.match(/Profundidade:\s*(\d+)/i);
+            const acu = text.match(/Acur[aá]cia:\s*(\d+)/i);
+            const dir = text.match(/Diretividade:\s*(Direta|Indireta)/i);
+            const jus = text.match(/Justificativa:\s*([\s\S]*)/i);
+
+            if (rel) result.relevancia = rel[1];
+            if (prof) result.profundidade = prof[1];
+            if (acu) result.acuracia = acu[1];
+            if (dir) result.diretividade = dir[1];
+            if (jus) result.justificativa = jus[1].trim();
+
+            return result;
+        }
+
+        function renderEvaluationTable(text) {
+            const data = parseEvaluation(text);
+
+            return `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Critério</th>
+                            <th>Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Relevância</td>
+                            <td class="score">${escapeHtml(data.relevancia)}</td>
+                        </tr>
+                        <tr>
+                            <td>Profundidade</td>
+                            <td class="score">${escapeHtml(data.profundidade)}</td>
+                        </tr>
+                        <tr>
+                            <td>Acurácia</td>
+                            <td class="score">${escapeHtml(data.acuracia)}</td>
+                        </tr>
+                        <tr>
+                            <td>Diretividade</td>
+                            <td class="score">${escapeHtml(data.diretividade)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="justification">
+                    <span class="label">Justificativa:</span><br>
+                    ${escapeHtml(data.justificativa)}
+                </div>
+            `;
+        }
+
+        async function sendQuestion() {
+            const question = document.getElementById("question").value.trim();
+            const sendBtn = document.getElementById("sendBtn");
+            const status = document.getElementById("status");
+
+            if (!question) {
+                status.textContent = "Digite uma pergunta antes de enviar.";
+                return;
+            }
+
+            sendBtn.disabled = true;
+            status.textContent = "Consultando e avaliando respostas...";
+
+            document.getElementById("grokResponse").textContent = "Carregando...";
+            document.getElementById("geminiResponse").textContent = "Carregando...";
+            document.getElementById("grokEvaluation").innerHTML = "Carregando avaliação...";
+            document.getElementById("geminiEvaluation").innerHTML = "Carregando avaliação...";
+            document.getElementById("grokMeta").textContent = "Aguardando resposta...";
+            document.getElementById("geminiMeta").textContent = "Aguardando resposta...";
+            document.getElementById("grokEvalMeta").textContent = "Aguardando avaliação...";
+            document.getElementById("geminiEvalMeta").textContent = "Aguardando avaliação...";
+
+            try {
+                const response = await fetch("/ask", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+
+                document.getElementById("grokModel").textContent = data.grok?.model || "-";
+                document.getElementById("geminiModel").textContent = data.gemini?.model || "-";
+
+                document.getElementById("grokMeta").textContent = data.grok?.ok
+                    ? "Resposta recebida com sucesso."
+                    : "Erro na consulta.";
+
+                document.getElementById("geminiMeta").textContent = data.gemini?.ok
+                    ? "Resposta recebida com sucesso."
+                    : "Erro na consulta.";
+
+                document.getElementById("grokResponse").textContent = data.grok?.content || "Sem resposta.";
+                document.getElementById("geminiResponse").textContent = data.gemini?.content || "Sem resposta.";
+
+                document.getElementById("grokEvalMeta").textContent = data.grok_evaluation?.ok
+                    ? "Avaliação recebida com sucesso."
+                    : "Erro na avaliação.";
+
+                document.getElementById("geminiEvalMeta").textContent = data.gemini_evaluation?.ok
+                    ? "Avaliação recebida com sucesso."
+                    : "Erro na avaliação.";
+
+                document.getElementById("grokEvaluation").innerHTML = renderEvaluationTable(
+                    data.grok_evaluation?.content || ""
+                );
+
+                document.getElementById("geminiEvaluation").innerHTML = renderEvaluationTable(
+                    data.gemini_evaluation?.content || ""
+                );
+
+                status.textContent = "Consulta e avaliação concluídas.";
+            } catch (error) {
+                status.textContent = "Erro ao enviar a pergunta: " + error.message;
+                document.getElementById("grokResponse").textContent = "Falha ao processar.";
+                document.getElementById("geminiResponse").textContent = "Falha ao processar.";
+                document.getElementById("grokEvaluation").innerHTML = "Falha ao processar.";
+                document.getElementById("geminiEvaluation").innerHTML = "Falha ao processar.";
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function clearResults() {
+            document.getElementById("question").value = "";
+            document.getElementById("grokResponse").textContent = "...";
+            document.getElementById("geminiResponse").textContent = "...";
+            document.getElementById("grokEvaluation").innerHTML = "...";
+            document.getElementById("geminiEvaluation").innerHTML = "...";
+            document.getElementById("grokMeta").textContent = "Sem resposta ainda.";
+            document.getElementById("geminiMeta").textContent = "Sem resposta ainda.";
+            document.getElementById("grokEvalMeta").textContent = "Sem avaliação ainda.";
+            document.getElementById("geminiEvalMeta").textContent = "Sem avaliação ainda.";
+            document.getElementById("grokModel").textContent = "-";
+            document.getElementById("geminiModel").textContent = "-";
+            document.getElementById("status").textContent = "Pronto para enviar.";
+        }
+    </script>
+</body>
+</html>
