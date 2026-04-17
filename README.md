@@ -35,6 +35,9 @@ O fluxo do sistema segue a lógica:
 Pergunta → LLM respondente → LLMs avaliadoras → notas e justificativas
 ```
 
-#### 👥 Autores * **Gabriel Assis** * **Miguel Moraes** * **Luiz Barbosa**
+#### 👥 Autores 
+- *Gabriel Assis* 
+- *Miguel Moraes* 
+- *Luiz Barbosa*
 
 ---
