@@ -46,7 +46,7 @@ def login_view(request):
             if next_url:
                 return redirect(next_url)
 
-            return redirect('menu')
+            return redirect('comparador')
 
         return render(request, 'login.html', {
         'error': 'Usuário ou senha inválidos'
