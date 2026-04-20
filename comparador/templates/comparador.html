@@ -351,9 +351,9 @@
             margin: 0;
         }
 
-        #grokResponse,
+        #groqResponse,
         #geminiResponse,
-        #grokEvaluation,
+        #groqEvaluation,
         #geminiEvaluation {
             white-space: pre-wrap;
             line-height: 1.65;
@@ -504,7 +504,7 @@
         </div>
 
         <div class="card">
-            <h1>Pergunte ao Grok e ao Gemini</h1>
+            <h1>Pergunte ao Groq e ao Gemini</h1>
             <p>
                 Digite uma pergunta, compare as respostas dos dois modelos e visualize a avaliação cruzada entre eles.
             </p>
@@ -530,11 +530,11 @@
                             </svg>
                         </div>
                         <div class="card-head-text">
-                            <h2>Grok <span class="badge" id="grokModel">-</span></h2>
-                            <div class="meta" id="grokMeta">Sem resposta ainda.</div>
+                            <h2>Groq <span class="badge" id="groqModel">-</span></h2>
+                            <div class="meta" id="groqMeta">Sem resposta ainda.</div>
                         </div>
                     </div>
-                    <div id="grokResponse">...</div>
+                    <div id="groqResponse">...</div>
                 </div>
 
                 <div class="result">
@@ -567,11 +567,11 @@
                             </svg>
                         </div>
                         <div class="card-head-text">
-                            <h2>Avaliação do Grok sobre a resposta do Gemini</h2>
-                            <div class="meta" id="grokEvalMeta">Sem avaliação ainda.</div>
+                            <h2>Avaliação do Groq sobre a resposta do Gemini</h2>
+                            <div class="meta" id="groqEvalMeta">Sem avaliação ainda.</div>
                         </div>
                     </div>
-                    <div id="grokEvaluation">...</div>
+                    <div id="groqEvaluation">...</div>
                 </div>
 
                 <div class="evaluation">
@@ -584,7 +584,7 @@
                             </svg>
                         </div>
                         <div class="card-head-text">
-                            <h2>Avaliação do Gemini sobre a resposta do Grok</h2>
+                            <h2>Avaliação do Gemini sobre a resposta do Groq</h2>
                             <div class="meta" id="geminiEvalMeta">Sem avaliação ainda.</div>
                         </div>
                     </div>
@@ -595,6 +595,30 @@
     </div>
 
     <script>
+
+        function getCookie(name) {
+            let cookieValue = null;
+
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+
+
         function escapeHtml(value) {
             return String(value ?? "")
                 .replaceAll("&", "&amp;")
@@ -670,92 +694,52 @@
             `;
         }
 
-        async function sendQuestion() {
-            const question = document.getElementById("question").value.trim();
-            const sendBtn = document.getElementById("sendBtn");
-            const status = document.getElementById("status");
+    async function sendQuestion() {
+    const pergunta = document.getElementById("question").value.trim();
 
-            if (!question) {
-                status.textContent = "Digite uma pergunta antes de enviar.";
-                return;
-            }
+    if (!pergunta) return;
 
-            sendBtn.disabled = true;
-            status.textContent = "Consultando e avaliando respostas...";
+    document.getElementById("status").textContent = "Consultando modelos...";
 
-            document.getElementById("grokResponse").textContent = "Carregando...";
-            document.getElementById("geminiResponse").textContent = "Carregando...";
-            document.getElementById("grokEvaluation").innerHTML = "Carregando avaliação...";
-            document.getElementById("geminiEvaluation").innerHTML = "Carregando avaliação...";
-            document.getElementById("grokMeta").textContent = "Aguardando resposta...";
-            document.getElementById("geminiMeta").textContent = "Aguardando resposta...";
-            document.getElementById("grokEvalMeta").textContent = "Aguardando avaliação...";
-            document.getElementById("geminiEvalMeta").textContent = "Aguardando avaliação...";
+    const response = await fetch("/gerar_respostas/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify({
+            pergunta: pergunta
+        })
+    });
 
-            try {
-                const response = await fetch("/ask", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ question })
-                });
+    const data = await response.json();
 
-                const data = await response.json();
+    // respostas
+    document.getElementById("groqResponse").textContent = data.grok;
+    document.getElementById("geminiResponse").textContent = data.gemini;
 
-                document.getElementById("grokModel").textContent = data.grok?.model || "-";
-                document.getElementById("geminiModel").textContent = data.gemini?.model || "-";
+    // badges
+    document.getElementById("groqModel").textContent = data.grok_model;
+    document.getElementById("geminiModel").textContent = data.gemini_model;
 
-                document.getElementById("grokMeta").textContent = data.grok?.ok
-                    ? "Resposta recebida com sucesso."
-                    : "Erro na consulta.";
+    // metas
+    document.getElementById("groqMeta").textContent = "Resposta recebida.";
+    document.getElementById("geminiMeta").textContent = "Resposta recebida.";
 
-                document.getElementById("geminiMeta").textContent = data.gemini?.ok
-                    ? "Resposta recebida com sucesso."
-                    : "Erro na consulta.";
-
-                document.getElementById("grokResponse").textContent = data.grok?.content || "Sem resposta.";
-                document.getElementById("geminiResponse").textContent = data.gemini?.content || "Sem resposta.";
-
-                document.getElementById("grokEvalMeta").textContent = data.grok_evaluation?.ok
-                    ? "Avaliação recebida com sucesso."
-                    : "Erro na avaliação.";
-
-                document.getElementById("geminiEvalMeta").textContent = data.gemini_evaluation?.ok
-                    ? "Avaliação recebida com sucesso."
-                    : "Erro na avaliação.";
-
-                document.getElementById("grokEvaluation").innerHTML = renderEvaluationTable(
-                    data.grok_evaluation?.content || ""
-                );
-
-                document.getElementById("geminiEvaluation").innerHTML = renderEvaluationTable(
-                    data.gemini_evaluation?.content || ""
-                );
-
-                status.textContent = "Consulta e avaliação concluídas.";
-            } catch (error) {
-                status.textContent = "Erro ao enviar a pergunta: " + error.message;
-                document.getElementById("grokResponse").textContent = "Falha ao processar.";
-                document.getElementById("geminiResponse").textContent = "Falha ao processar.";
-                document.getElementById("grokEvaluation").innerHTML = "Falha ao processar.";
-                document.getElementById("geminiEvaluation").innerHTML = "Falha ao processar.";
-            } finally {
-                sendBtn.disabled = false;
-            }
-        }
+    document.getElementById("status").textContent = "Concluído.";
+}
 
         function clearResults() {
             document.getElementById("question").value = "";
-            document.getElementById("grokResponse").textContent = "...";
+            document.getElementById("groqResponse").textContent = "...";
             document.getElementById("geminiResponse").textContent = "...";
-            document.getElementById("grokEvaluation").innerHTML = "...";
+            document.getElementById("groqEvaluation").innerHTML = "...";
             document.getElementById("geminiEvaluation").innerHTML = "...";
-            document.getElementById("grokMeta").textContent = "Sem resposta ainda.";
+            document.getElementById("groqMeta").textContent = "Sem resposta ainda.";
             document.getElementById("geminiMeta").textContent = "Sem resposta ainda.";
-            document.getElementById("grokEvalMeta").textContent = "Sem avaliação ainda.";
+            document.getElementById("groqEvalMeta").textContent = "Sem avaliação ainda.";
             document.getElementById("geminiEvalMeta").textContent = "Sem avaliação ainda.";
-            document.getElementById("grokModel").textContent = "-";
+            document.getElementById("groqModel").textContent = "-";
             document.getElementById("geminiModel").textContent = "-";
             document.getElementById("status").textContent = "Pronto para enviar.";
         }
