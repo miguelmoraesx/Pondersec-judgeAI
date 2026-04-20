@@ -644,7 +644,7 @@
             const rel = text.match(/Relev[aâ]ncia:\s*(\d+)/i);
             const prof = text.match(/Profundidade:\s*(\d+)/i);
             const acu = text.match(/Acur[aá]cia:\s*(\d+)/i);
-            const dir = text.match(/Diretividade:\s*(Direta|Indireta)/i);
+            const dir = text.match(/Diretividade:\s*(\d+)/i);
             const jus = text.match(/Justificativa:\s*([\s\S]*)/i);
 
             if (rel) result.relevancia = rel[1];
@@ -695,39 +695,55 @@
         }
 
     async function sendQuestion() {
-    const pergunta = document.getElementById("question").value.trim();
+        const pergunta = document.getElementById("question").value.trim();
+        if (!pergunta) return;
 
-    if (!pergunta) return;
+        const btn = document.getElementById("sendBtn");
+        btn.disabled = true;
+        document.getElementById("status").textContent = "Consultando modelos...";
 
-    document.getElementById("status").textContent = "Consultando modelos...";
+        try {
+            const response = await fetch("/gerar_respostas/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrftoken
+                },
+                body: JSON.stringify({ pergunta })
+            });
 
-    const response = await fetch("/gerar_respostas/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrftoken
-        },
-        body: JSON.stringify({
-            pergunta: pergunta
-        })
-    });
+            if (!response.ok) {
+                throw new Error(`Erro HTTP ${response.status}`);
+            }
 
-    const data = await response.json();
+            const data = await response.json();
 
-    // respostas
-    document.getElementById("groqResponse").textContent = data.grok;
-    document.getElementById("geminiResponse").textContent = data.gemini;
+            // Respostas principais
+            document.getElementById("groqResponse").textContent = data.groq;
+            document.getElementById("geminiResponse").textContent = data.gemini;
 
-    // badges
-    document.getElementById("groqModel").textContent = data.grok_model;
-    document.getElementById("geminiModel").textContent = data.gemini_model;
+            // Badges dos modelos
+            document.getElementById("groqModel").textContent = data.groq_model;
+            document.getElementById("geminiModel").textContent = data.gemini_model;
 
-    // metas
-    document.getElementById("groqMeta").textContent = "Resposta recebida.";
-    document.getElementById("geminiMeta").textContent = "Resposta recebida.";
+            // Metas das respostas
+            document.getElementById("groqMeta").textContent = "Resposta recebida.";
+            document.getElementById("geminiMeta").textContent = "Resposta recebida.";
 
-    document.getElementById("status").textContent = "Concluído.";
-}
+            // Avaliações cruzadas
+            document.getElementById("groqEvaluation").innerHTML = renderEvaluationTable(data.groq_evaluation);
+            document.getElementById("geminiEvaluation").innerHTML = renderEvaluationTable(data.gemini_evaluation);
+
+            document.getElementById("groqEvalMeta").textContent = "Avaliação do Groq sobre o Gemini.";
+            document.getElementById("geminiEvalMeta").textContent = "Avaliação do Gemini sobre o Groq.";
+
+            document.getElementById("status").textContent = "Concluído.";
+        } catch (err) {
+            document.getElementById("status").textContent = "Erro: " + err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
 
         function clearResults() {
             document.getElementById("question").value = "";

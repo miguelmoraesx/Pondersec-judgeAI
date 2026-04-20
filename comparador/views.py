@@ -1,27 +1,16 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from openai import OpenAI
-import os
-from . import views
 from google import genai
 from groq import Groq
 import json
+import os
 
 
 @login_required
 def comparador_view(request):
-    return render(request,'comparador.html')
-
-
-
-import json
-import os
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from groq import Groq
-from google import genai
+    return render(request, 'comparador.html')
 
 
 @require_POST
@@ -81,54 +70,41 @@ def gerar_respostas(request):
     prompt_final_pergunta = f"{contexto_pergunta}\n\n{pergunta}"
 
     client_gemini = genai.Client()
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-    client = Groq(
-        api_key=os.environ.get("GROQ_API_KEY"),
-    )
-
-    # GROQ
+    # Gera resposta do Groq
     response_groq = client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": prompt_final_pergunta,
-            }
-        ],
+        messages=[{"role": "user", "content": prompt_final_pergunta}],
         model="llama-3.3-70b-versatile",
     )
-
     resposta_groq = response_groq.choices[0].message.content
 
-    # GEMINI
+    # Gera resposta do Gemini
     response_gemini = client_gemini.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-2.0-flash",
         contents=prompt_final_pergunta,
     )
     resposta_gemini = response_gemini.text
 
-
-    prompt_final_avaliacao_gemini = f"{contexto_pergunta}\n\n{resposta_groq}" #resposta  que o gemini vai avaliar
-    prompt_final_avaliacao_groq = f"{contexto_pergunta}\n\n{resposta_gemini}" #resposta que o groq vai avaliar
-
+    # Groq avalia a resposta do Gemini
+    prompt_avaliacao_para_groq = (
+        f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_gemini}"
+    )
     response_groq_avaliacao = client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": prompt_final_avaliacao_groq,
-            }
-        ],
+        messages=[{"role": "user", "content": prompt_avaliacao_para_groq}],
         model="llama-3.3-70b-versatile",
     )
+    avaliacao_do_groq = response_groq_avaliacao.choices[0].message.content
 
-    
-
-    # GEMINI
+    # Gemini avalia a resposta do Groq
+    prompt_avaliacao_para_gemini = (
+        f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_groq}"
+    )
     response_gemini_avaliacao = client_gemini.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=prompt_final_avaliacao_gemini,
+        model="gemini-2.0-flash",
+        contents=prompt_avaliacao_para_gemini,
     )
     avaliacao_do_gemini = response_gemini_avaliacao.text
-    avaliacao_do_groq = response_groq_avaliacao.choices[0].message.content
 
 
 
@@ -137,22 +113,12 @@ def gerar_respostas(request):
 
 
     return JsonResponse({
-    "status": "ok",
-
-    # respostas principais
-    "grok": resposta_groq,
-    "gemini": resposta_gemini,
-
-    # modelos utilizados
-    "groq_model": "llama-3.3-70b-versatile",
-    "gemini_model": "gemini-3-flash-preview",
-
-    # avaliações cruzadas (preenchidas depois)
-    "groq_evaluation": avaliacao_do_groq ,
-    "gemini_evaluation": avaliacao_do_gemini,
-
-    # status das avaliações
-    "groq_evaluation_status": "pendente",
-    "gemini_evaluation_status": "pendente"
-})
+        "status": "ok",
+        "groq": resposta_groq,
+        "gemini": resposta_gemini,
+        "groq_model": "llama-3.3-70b-versatile",
+        "gemini_model": "gemini-2.0-flash",
+        "groq_evaluation": avaliacao_do_groq,
+        "gemini_evaluation": avaliacao_do_gemini,
+    })
 
