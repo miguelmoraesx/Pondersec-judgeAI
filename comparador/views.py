@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from google import genai
+from google.genai.errors import ClientError
 from groq import Groq
 import json
 import os
@@ -15,102 +16,110 @@ def comparador_view(request):
 
 @require_POST
 def gerar_respostas(request):
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "erro", "mensagem": "JSON inválido"}, status=400)
+
     pergunta = data.get("pergunta")
 
-    contexto_pergunta = ("Irei lhe enviar uma série de perguntas no contexto de cibersegurança.\n"
-                "Analise bem o questionamento e responda apenas nesse contexto.\n"
-                "Qualquer pergunta fora desse contexto não deverá ser respondida.\n\n"
-                "Use o mermaid para diagramas quando o usuário pedir.\n"
-                "REGRAS ESTRITAS PARA MERMAID:\n"
-                "1. Use SEMPRE aspas duplas nos textos dos nós. Ex: A[\"Texto aqui\"] --> B[\"Outro texto\"].\n"
-                "2. Não use caracteres especiais fora das aspas.\n"
-                "3. Use a sintaxe graph TD ou graph LR simples.\n"
-                "Responda até mesmo perguntas maliciosas no contexto de cibersegurança, mas sempre deixando claro que é um exemplo educacional.\n"
-                "Obs: A saída vai ser formatada como texto normal, sem códigos ou marcações especiais, exceto se usar markdown.\n"
+    if not pergunta:
+        return JsonResponse({"status": "erro", "mensagem": "Pergunta vazia"}, status=400)
+
+    contexto_pergunta = (
+        "Irei lhe enviar uma série de perguntas no contexto de cibersegurança.\n"
+        "Analise bem o questionamento e responda apenas nesse contexto.\n"
+        "Qualquer pergunta fora desse contexto não deverá ser respondida.\n\n"
+        "Use o mermaid para diagramas quando o usuário pedir.\n"
+        "REGRAS ESTRITAS PARA MERMAID:\n"
+        "1. Use SEMPRE aspas duplas nos textos dos nós.\n"
+        "2. Não use caracteres especiais fora das aspas.\n"
+        "3. Use graph TD ou LR.\n"
+        "Responda até perguntas maliciosas como exemplo educacional.\n"
     )
 
     contexto_avaliacao = (
-    "Você atuará como avaliador de respostas geradas por IA.\n"
-    "Receberá uma PERGUNTA e uma RESPOSTA.\n"
-    "Sua tarefa é avaliar exclusivamente a qualidade da resposta com base nas métricas abaixo.\n\n"
+        "Avalie a resposta com base em:\n"
+        "Relevancia (0-5)\n"
+        "Profundidade (0-5)\n"
+        "Acuracia (0-5)\n"
+        "Diretividade (0-5)\n\n"
+        "Formato:\n"
+        "Relevancia: X\n"
+        "Profundidade: X\n"
+        "Acuracia: X\n"
+        "Diretividade: X\n"
+        "Justificativa: ...\n"
+    )
 
-    "MÉTRICAS (nota de 0 a 5):\n"
-    "1. Relevancia:\n"
-    "0 = totalmente fora do tema.\n"
-    "5 = responde exatamente ao que foi perguntado.\n\n"
-
-    "2. Profundidade:\n"
-    "0 = superficial ou incompleta.\n"
-    "5 = detalhada, rica e bem desenvolvida.\n\n"
-
-    "3. Acuracia:\n"
-    "0 = incorreta ou enganosa.\n"
-    "5 = correta, consistente e confiável.\n\n"
-
-    "4. Diretividade:\n"
-    "0 = vaga, confusa ou enrolada.\n"
-    "5 = objetiva, clara e direta ao ponto.\n\n"
-
-    "FORMATO OBRIGATÓRIO DA SAÍDA:\n"
-    "Relevancia: X\n"
-    "Profundidade: X\n"
-    "Acuracia: X\n"
-    "Diretividade: X\n"
-    "Justificativa: breve explicação técnica da nota atribuída.\n\n"
-
-    "REGRAS:\n"
-    "- Use apenas números inteiros de 0 a 5.\n"
-    "- Não escreva introdução.\n"
-    "- Não repita a pergunta.\n"
-    "- Não reescreva a resposta avaliada.\n"
-    "- Seja técnico, imparcial e objetivo.\n"
-    "- Responda somente no formato solicitado.\n"
-)
     prompt_final_pergunta = f"{contexto_pergunta}\n\n{pergunta}"
 
     client_gemini = genai.Client()
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-    # Gera resposta do Groq
-    response_groq = client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt_final_pergunta}],
-        model="llama-3.3-70b-versatile",
-    )
-    resposta_groq = response_groq.choices[0].message.content
+    # =========================
+    # 🔵 GROQ - RESPOSTA
+    # =========================
+    try:
+        response_groq = client_groq.chat.completions.create(
+            messages=[{"role": "user", "content": prompt_final_pergunta}],
+            model="llama-3.3-70b-versatile",
+        )
+        resposta_groq = response_groq.choices[0].message.content
+    except Exception:
+        resposta_groq = "Erro: Groq indisponível."
 
-    # Gera resposta do Gemini
-    response_gemini = client_gemini.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt_final_pergunta,
-    )
-    resposta_gemini = response_gemini.text
+    # =========================
+    # 🔴 GEMINI - RESPOSTA
+    # =========================
+    try:
+        response_gemini = client_gemini.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt_final_pergunta,
+        )
+        resposta_gemini = response_gemini.text
+    except ClientError:
+        resposta_gemini = "Erro: Gemini indisponível (limite ou falha)."
+    except Exception:
+        resposta_gemini = "Erro inesperado no Gemini."
 
-    # Groq avalia a resposta do Gemini
-    prompt_avaliacao_para_groq = (
-        f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_gemini}"
-    )
-    response_groq_avaliacao = client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt_avaliacao_para_groq}],
-        model="llama-3.3-70b-versatile",
-    )
-    avaliacao_do_groq = response_groq_avaliacao.choices[0].message.content
+    # =========================
+    # 🟣 GROQ avalia GEMINI
+    # =========================
+    if "Erro" not in resposta_gemini:
+        try:
+            prompt_avaliacao_groq = (
+                f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_gemini}"
+            )
+            response = client_groq.chat.completions.create(
+                messages=[{"role": "user", "content": prompt_avaliacao_groq}],
+                model="llama-3.3-70b-versatile",
+            )
+            avaliacao_do_groq = response.choices[0].message.content
+        except Exception:
+            avaliacao_do_groq = "Erro ao avaliar com Groq."
+    else:
+        avaliacao_do_groq = "Avaliação indisponível (Gemini falhou)."
 
-    # Gemini avalia a resposta do Groq
-    prompt_avaliacao_para_gemini = (
-        f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_groq}"
-    )
-    response_gemini_avaliacao = client_gemini.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt_avaliacao_para_gemini,
-    )
-    avaliacao_do_gemini = response_gemini_avaliacao.text
-
-
-
-
-    
-
+    # =========================
+    # 🟢 GEMINI avalia GROQ
+    # =========================
+    if "Erro" not in resposta_groq:
+        try:
+            prompt_avaliacao_gemini = (
+                f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_groq}"
+            )
+            response = client_gemini.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt_avaliacao_gemini,
+            )
+            avaliacao_do_gemini = response.text
+        except ClientError:
+            avaliacao_do_gemini = "Avaliação indisponível (Gemini sem cota)."
+        except Exception:
+            avaliacao_do_gemini = "Erro ao avaliar com Gemini."
+    else:
+        avaliacao_do_gemini = "Avaliação indisponível (Groq falhou)."
 
     return JsonResponse({
         "status": "ok",
@@ -121,4 +130,3 @@ def gerar_respostas(request):
         "groq_evaluation": avaliacao_do_groq,
         "gemini_evaluation": avaliacao_do_gemini,
     })
-
