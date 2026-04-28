@@ -264,6 +264,19 @@
             border: 1px solid rgba(0,255,160,.12);
         }
 
+        /* FIX 7: Classes de status para feedback visual de erro e timeout */
+        .status.erro {
+            color: #ff6b6b;
+            background: rgba(255,80,80,.05);
+            border-color: rgba(255,80,80,.2);
+        }
+
+        .status.aviso {
+            color: #ffd166;
+            background: rgba(255,200,0,.05);
+            border-color: rgba(255,200,0,.18);
+        }
+
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -423,7 +436,9 @@
             border: 1px solid rgba(0,255,160,.12);
             color: #dffef2;
             line-height: 1.6;
-            white-space: pre-wrap;
+            /* FIX 6: white-space: pre-wrap aqui não funciona para texto
+               inserido via innerHTML — usamos um elemento <pre> estilizado
+               diretamente no renderEvaluationTable() para preservar \n */
         }
 
         @media (max-width: 980px) {
@@ -596,6 +611,9 @@
 
     <script>
 
+        // FIX 7: Constante de timeout — 60 segundos antes de desistir da requisição.
+        const REQUEST_TIMEOUT_MS = 60000;
+
         function getCookie(name) {
             let cookieValue = null;
 
@@ -617,8 +635,6 @@
 
         const csrftoken = getCookie('csrftoken');
 
-
-
         function escapeHtml(value) {
             return String(value ?? "")
                 .replaceAll("&", "&amp;")
@@ -628,6 +644,14 @@
                 .replaceAll("'", "&#039;");
         }
 
+        function setStatus(msg, tipo = "") {
+            const el = document.getElementById("status");
+            el.textContent = msg;
+            el.className = "status" + (tipo ? " " + tipo : "");
+        }
+
+        // FIX 2: Regex atualizados para cobrir as variações com e sem acento
+        // que os LLMs podem gerar (ex.: "Relevância" e "Relevancia").
         function parseEvaluation(text) {
             const result = {
                 relevancia: "-",
@@ -641,17 +665,18 @@
                 return result;
             }
 
-            const rel = text.match(/Relev[aâ]ncia:\s*(\d+)/i);
-            const prof = text.match(/Profundidade:\s*(\d+)/i);
-            const acu = text.match(/Acur[aá]cia:\s*(\d+)/i);
-            const dir = text.match(/Diretividade:\s*(\d+)/i);
-            const jus = text.match(/Justificativa:\s*([\s\S]*)/i);
+            // Padrões tolerantes: aceitam versão com e sem acento, com e sem til
+            const rel  = text.match(/Relev[aâ]n[cç][iíï]a\s*:\s*(\d+)/i);
+            const prof = text.match(/Profundidade\s*:\s*(\d+)/i);
+            const acu  = text.match(/Acur[aá]cia\s*:\s*(\d+)/i);
+            const dir  = text.match(/Diretividade\s*:\s*(\d+)/i);
+            const jus  = text.match(/Justificativa\s*:\s*([\s\S]*)/i);
 
-            if (rel) result.relevancia = rel[1];
-            if (prof) result.profundidade = prof[1];
-            if (acu) result.acuracia = acu[1];
-            if (dir) result.diretividade = dir[1];
-            if (jus) result.justificativa = jus[1].trim();
+            if (rel)  result.relevancia    = rel[1];
+            if (prof) result.profundidade  = prof[1];
+            if (acu)  result.acuracia      = acu[1];
+            if (dir)  result.diretividade  = dir[1];
+            if (jus)  result.justificativa = jus[1].trim();
 
             return result;
         }
@@ -659,7 +684,18 @@
         function renderEvaluationTable(text) {
             const data = parseEvaluation(text);
 
-            return `
+            // FIX 6: A justificativa é inserida em um elemento <pre> em vez de
+            // um <div> com innerHTML interpolado. Assim as quebras de linha (\n)
+            // do texto bruto são preservadas pelo browser sem depender de
+            // white-space: pre-wrap num elemento pai — que não funciona para
+            // conteúdo inserido via innerHTML.
+            const preEl = document.createElement("pre");
+            preEl.className = "justification";
+            preEl.style.cssText = "white-space: pre-wrap; font-family: inherit; margin: 0;";
+            preEl.textContent = data.justificativa;
+
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = `
                 <table>
                     <thead>
                         <tr>
@@ -686,78 +722,114 @@
                         </tr>
                     </tbody>
                 </table>
-
-                <div class="justification">
-                    <span class="label">Justificativa:</span><br>
-                    ${escapeHtml(data.justificativa)}
-                </div>
+                <div class="justification-label" style="color:#00ff9f;font-weight:700;margin-top:14px;margin-bottom:6px;">Justificativa:</div>
             `;
+            wrapper.appendChild(preEl);
+            return wrapper;
         }
 
-    async function sendQuestion() {
-        const pergunta = document.getElementById("question").value.trim();
-        if (!pergunta) return;
+        async function sendQuestion() {
+            const pergunta = document.getElementById("question").value.trim();
+            if (!pergunta) return;
 
-        const btn = document.getElementById("sendBtn");
-        btn.disabled = true;
-        document.getElementById("status").textContent = "Consultando modelos...";
+            const btn = document.getElementById("sendBtn");
+            btn.disabled = true;
+            setStatus("Consultando modelos...");
 
-        try {
-            const response = await fetch("/gerar_respostas/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrftoken
-                },
-                body: JSON.stringify({ pergunta })
-            });
+            // FIX 7: AbortController para cancelar a requisição após timeout,
+            // evitando que o botão fique travado indefinidamente.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, REQUEST_TIMEOUT_MS);
 
-            if (!response.ok) {
-                throw new Error(`Erro HTTP ${response.status}`);
+            try {
+                const response = await fetch("/gerar_respostas/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: JSON.stringify({ pergunta }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // FIX 5: Verificação explícita da flag "status" do JSON,
+                // não apenas do HTTP status code.
+                if (data.status !== "ok") {
+                    throw new Error(data.mensagem || "Erro desconhecido no servidor.");
+                }
+
+                // Respostas principais
+                document.getElementById("groqResponse").textContent = data.groq;
+                document.getElementById("geminiResponse").textContent = data.gemini;
+
+                // Badges dos modelos
+                document.getElementById("groqModel").textContent = data.groq_model;
+                document.getElementById("geminiModel").textContent = data.gemini_model;
+
+                // FIX 5: Metas refletem se o modelo teve sucesso ou falha parcial,
+                // usando as flags booleanas groq_ok / gemini_ok retornadas pelo backend.
+                document.getElementById("groqMeta").textContent = data.groq_ok
+                    ? "Resposta recebida."
+                    : "Falha ao obter resposta.";
+                document.getElementById("geminiMeta").textContent = data.gemini_ok
+                    ? "Resposta recebida."
+                    : "Falha ao obter resposta.";
+
+                // FIX 6: renderEvaluationTable agora retorna um nó DOM,
+                // não uma string HTML — usamos replaceChildren para inserir.
+                const groqEvalEl = document.getElementById("groqEvaluation");
+                groqEvalEl.replaceChildren(renderEvaluationTable(data.groq_evaluation));
+
+                const geminiEvalEl = document.getElementById("geminiEvaluation");
+                geminiEvalEl.replaceChildren(renderEvaluationTable(data.gemini_evaluation));
+
+                document.getElementById("groqEvalMeta").textContent = "Avaliação do Groq sobre o Gemini.";
+                document.getElementById("geminiEvalMeta").textContent = "Avaliação do Gemini sobre o Groq.";
+
+                // FIX 5: Aviso visual quando um dos modelos falhou parcialmente.
+                if (!data.groq_ok || !data.gemini_ok) {
+                    setStatus("Concluído com falhas em um ou mais modelos.", "aviso");
+                } else {
+                    setStatus("Concluído.");
+                }
+
+            } catch (err) {
+                clearTimeout(timeoutId);
+
+                // FIX 7: Mensagem específica para timeout vs outros erros.
+                if (err.name === "AbortError") {
+                    setStatus("Tempo limite atingido (60s). Tente novamente.", "erro");
+                } else {
+                    setStatus("Erro: " + err.message, "erro");
+                }
+            } finally {
+                btn.disabled = false;
             }
-
-            const data = await response.json();
-
-            // Respostas principais
-            document.getElementById("groqResponse").textContent = data.groq;
-            document.getElementById("geminiResponse").textContent = data.gemini;
-
-            // Badges dos modelos
-            document.getElementById("groqModel").textContent = data.groq_model;
-            document.getElementById("geminiModel").textContent = data.gemini_model;
-
-            // Metas das respostas
-            document.getElementById("groqMeta").textContent = "Resposta recebida.";
-            document.getElementById("geminiMeta").textContent = "Resposta recebida.";
-
-            // Avaliações cruzadas
-            document.getElementById("groqEvaluation").innerHTML = renderEvaluationTable(data.groq_evaluation);
-            document.getElementById("geminiEvaluation").innerHTML = renderEvaluationTable(data.gemini_evaluation);
-
-            document.getElementById("groqEvalMeta").textContent = "Avaliação do Groq sobre o Gemini.";
-            document.getElementById("geminiEvalMeta").textContent = "Avaliação do Gemini sobre o Groq.";
-
-            document.getElementById("status").textContent = "Concluído.";
-        } catch (err) {
-            document.getElementById("status").textContent = "Erro: " + err.message;
-        } finally {
-            btn.disabled = false;
         }
-    }
 
         function clearResults() {
             document.getElementById("question").value = "";
             document.getElementById("groqResponse").textContent = "...";
             document.getElementById("geminiResponse").textContent = "...";
-            document.getElementById("groqEvaluation").innerHTML = "...";
-            document.getElementById("geminiEvaluation").innerHTML = "...";
+            document.getElementById("groqEvaluation").textContent = "...";
+            document.getElementById("geminiEvaluation").textContent = "...";
             document.getElementById("groqMeta").textContent = "Sem resposta ainda.";
             document.getElementById("geminiMeta").textContent = "Sem resposta ainda.";
             document.getElementById("groqEvalMeta").textContent = "Sem avaliação ainda.";
             document.getElementById("geminiEvalMeta").textContent = "Sem avaliação ainda.";
             document.getElementById("groqModel").textContent = "-";
             document.getElementById("geminiModel").textContent = "-";
-            document.getElementById("status").textContent = "Pronto para enviar.";
+            setStatus("Pronto para enviar.");
         }
     </script>
 </body>

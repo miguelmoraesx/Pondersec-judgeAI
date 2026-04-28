@@ -10,7 +10,7 @@ COPY . .
 
 
 #SEÇÃO DE ATUALIZAÇÃO E INSTALAÇÃO
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --fix-missing \
     gcc \
     libpq-dev \
     git \
