@@ -59,11 +59,11 @@ def gerar_respostas(request):
 
     prompt_final_pergunta = f"{contexto_pergunta}\n\n{pergunta}"
 
-    client_gemini = genai.Client()
+    client_gemini = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
     client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
     groq_model = "llama-3.3-70b-versatile"
-    gemini_model = "gemini-2.0-flash"
+    gemini_model = "gemini-2.5-flash"
 
     # =========================
     # GROQ - RESPOSTA
@@ -91,28 +91,26 @@ def gerar_respostas(request):
     gemini_ok = False
     resposta_gemini = ""
 
+    
+
+    print("API KEY:", repr(os.environ.get("GEMINI_API_KEY")))
+    print("GOOGLE_API_KEY:", repr(os.environ.get("GOOGLE_API_KEY")))
+    print("GOOGLE_APPLICATION_CREDENTIALS:", repr(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")))
+
+
     try:
         response_gemini = client_gemini.models.generate_content(
             model=gemini_model,
             contents=prompt_final_pergunta,
         )
-
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning("GEMINI DEBUG — type: %s", type(response_gemini))
-        logger.warning("GEMINI DEBUG — dir: %s", [a for a in dir(response_gemini) if not a.startswith("_")])
-        logger.warning("GEMINI DEBUG — response: %s", response_gemini)
-
-        candidate = response_gemini.candidates[0] if response_gemini.candidates else None
-        if not candidate or not candidate.content or not candidate.content.parts:
-            resposta_gemini = "Gemini bloqueou a resposta (filtro de segurança ou sem conteúdo)."
-        else:
-            resposta_gemini = response_gemini.text
-            gemini_model = response_gemini.model_version if hasattr(response_gemini, "model_version") else gemini_model
-            gemini_ok = True
+        resposta_gemini = response_gemini.text
+        gemini_ok = True
 
     except ClientError as e:
-        resposta_gemini = f"Erro: Gemini indisponível (limite ou falha). ({type(e).__name__}: {str(e)})"
+        import traceback
+        print("ERRO GEMINI:", e)
+        traceback.print_exc()
+        resposta_gemini = str(e)
     except Exception as e:
         resposta_gemini = f"Erro inesperado no Gemini. ({type(e).__name__}: {str(e)})"
 
@@ -145,7 +143,7 @@ def gerar_respostas(request):
                 f"{contexto_avaliacao}\n\nPERGUNTA: {pergunta}\n\nRESPOSTA:\n{resposta_groq}"
             )
             response = client_gemini.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=prompt_avaliacao_gemini,
             )
             avaliacao_do_gemini = response.text
