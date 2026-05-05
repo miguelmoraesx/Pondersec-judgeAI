@@ -653,327 +653,337 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
   </div><!-- /main-card -->
 </div><!-- /wrap -->
 
+<!-- (todo seu HTML permanece igual até o <script>) -->
 <script>
-// ── KEYS ─────────────────────────────────────────────────────────────────────
-const STORE = {
-  groq:     'judgeai_key_groq',
-  gemini:   'judgeai_key_gemini',
-  openai:   'judgeai_key_openai',
-  deepseek: 'judgeai_key_deepseek',
-};
 
-function loadKeys() {
-  for (const [id, key] of Object.entries(STORE)) {
-    const v = localStorage.getItem(key) || '';
-    document.getElementById('key-' + (id === 'openai' ? 'openai' : id)).value = v;
-  }
-  document.getElementById('key-openai').value = localStorage.getItem(STORE.openai) || '';
-}
+// =========================
+// STORAGE KEYS
+// =========================
+const STORAGE_KEY = "judgeai_apikeys";
 
-function saveKeys() {
-  localStorage.setItem(STORE.groq,     document.getElementById('key-groq').value.trim());
-  localStorage.setItem(STORE.gemini,   document.getElementById('key-gemini').value.trim());
-  localStorage.setItem(STORE.openai,   document.getElementById('key-openai').value.trim());
-  localStorage.setItem(STORE.deepseek, document.getElementById('key-deepseek').value.trim());
-  const el = document.getElementById('keyStatus');
-  el.textContent = '✓ Chaves salvas com sucesso.';
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-function clearKeys() {
-  Object.values(STORE).forEach(k => localStorage.removeItem(k));
-  ['key-groq','key-gemini','key-openai','key-deepseek'].forEach(id => document.getElementById(id).value = '');
-  const el = document.getElementById('keyStatus');
-  el.textContent = '✓ Chaves removidas.';
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-function toggleKeys() {
-  document.getElementById('keysPanel').classList.toggle('open');
-  loadKeys();
-}
-
-function toggleEye(inputId, btn) {
-  const inp = document.getElementById(inputId);
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁'; }
-}
-
+// =========================
+// GET KEY
+// =========================
 function getKey(name) {
-  return localStorage.getItem(STORE[name === 'openai' ? 'openai' : name]) || '';
+  return document.getElementById("key-" + name)?.value || "";
 }
 
-// ── STATUS ────────────────────────────────────────────────────────────────────
+// =========================
+// TOGGLE SHOW/HIDE PASSWORD
+// =========================
+function toggleEye(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "🙈";
+  } else {
+    input.type = "password";
+    btn.textContent = "👁";
+  }
+}
+
+// =========================
+// TOGGLE PANEL
+// =========================
+function toggleKeys() {
+  document.getElementById("keysPanel").classList.toggle("open");
+}
+
+// =========================
+// SAVE KEYS
+// =========================
+function saveKeys() {
+  const keys = {
+    groq: getKey("groq"),
+    gemini: getKey("gemini"),
+    openai: getKey("openai"),
+    deepseek: getKey("deepseek")
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+
+  const status = document.getElementById("keyStatus");
+  status.textContent = "✓ Chaves salvas localmente.";
+  status.classList.add("show");
+
+  setTimeout(() => status.classList.remove("show"), 2000);
+}
+
+// =========================
+// LOAD KEYS
+// =========================
+function loadKeys() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return;
+
+  try {
+    const keys = JSON.parse(saved);
+
+    if (keys.groq) document.getElementById("key-groq").value = keys.groq;
+    if (keys.gemini) document.getElementById("key-gemini").value = keys.gemini;
+    if (keys.openai) document.getElementById("key-openai").value = keys.openai;
+    if (keys.deepseek) document.getElementById("key-deepseek").value = keys.deepseek;
+
+  } catch (e) {
+    console.error("Erro ao carregar keys:", e);
+  }
+}
+
+// =========================
+// CLEAR KEYS
+// =========================
+function clearKeys() {
+  localStorage.removeItem(STORAGE_KEY);
+
+  ["groq","gemini","openai","deepseek"].forEach(k => {
+    const el = document.getElementById("key-" + k);
+    if (el) el.value = "";
+  });
+
+  const status = document.getElementById("keyStatus");
+  status.textContent = "✕ Chaves removidas.";
+  status.classList.add("show");
+
+  setTimeout(() => status.classList.remove("show"), 2000);
+}
+
+// =========================
+// CSRF
+// =========================
+function getCSRFToken() {
+  const name = 'csrftoken';
+  const cookies = document.cookie.split(';');
+
+  for (let c of cookies) {
+    c = c.trim();
+    if (c.startsWith(name + '=')) {
+      return c.substring(name.length + 1);
+    }
+  }
+  return '';
+}
+
+// =========================
+// STATUS
+// =========================
 function setStatus(msg, tipo) {
   const el = document.getElementById('status');
   el.textContent = msg;
   el.className = 'status-bar' + (tipo ? ' ' + tipo : '');
 }
 
-function setProg(id, state) { // state: 'loading'|'ok'|'err'|'reset'
+// =========================
+// PROGRESS
+// =========================
+function setProg(id, state) {
   const wrap = document.getElementById('prog' + id.charAt(0).toUpperCase() + id.slice(1));
   if (!wrap) return;
+
   const dots = wrap.querySelectorAll('.prog-dot');
-  dots.forEach(d => { d.className = 'prog-dot'; });
-  if (state === 'loading') { dots[0].classList.add('active'); }
-  if (state === 'ok')      { dots.forEach(d => d.classList.add('done')); }
-  if (state === 'err')     { dots.forEach(d => d.style.background = '#ef4444'); }
-}
 
-// ── EVAL PROMPT ───────────────────────────────────────────────────────────────
-function evalPrompt(judger, target, targetResp, question) {
-  return `Você é ${judger}, um avaliador rigoroso. Avalie a seguinte resposta de ${target} à pergunta abaixo.
-
-PERGUNTA: ${question}
-
-RESPOSTA DE ${target.toUpperCase()}:
-${targetResp}
-
-Avalie nos critérios abaixo com nota de 0 a 10 (apenas o número inteiro):
-Relevância: <nota>
-Profundidade: <nota>
-Acurácia: <nota>
-Diretividade: <nota>
-Justificativa: <texto explicando brevemente os pontos fortes e fracos da resposta>
-
-Responda APENAS nesse formato exato, sem texto adicional antes ou depois.`;
-}
-
-// ── PARSE EVAL ────────────────────────────────────────────────────────────────
-function parseEval(text) {
-  const r = { rel:'-', prof:'-', acu:'-', dir:'-', just: text || '—' };
-  if (!text) return r;
-  const rel  = text.match(/Relev[aâ]n[cç][iíï]a\s*:\s*(\d+)/i);
-  const prof = text.match(/Profundidade\s*:\s*(\d+)/i);
-  const acu  = text.match(/Acur[aá]cia\s*:\s*(\d+)/i);
-  const dir  = text.match(/Diretividade\s*:\s*(\d+)/i);
-  const jus  = text.match(/Justificativa\s*:\s*([\s\S]*)/i);
-  if (rel)  r.rel  = rel[1];
-  if (prof) r.prof = prof[1];
-  if (acu)  r.acu  = acu[1];
-  if (dir)  r.dir  = dir[1];
-  if (jus)  r.just = jus[1].trim();
-  return r;
-}
-
-function scoreClass(v) {
-  const n = parseInt(v);
-  if (isNaN(n)) return 'score-na';
-  if (n >= 7) return 'score-hi';
-  if (n >= 4) return 'score-mid';
-  return 'score-lo';
-}
-
-function renderEval(cardId, judger, target, text) {
-  const card = document.getElementById(cardId);
-  if (!card) return;
-  const d = parseEval(text);
-  const rows = [
-    ['Relevância',   d.rel],
-    ['Profundidade', d.prof],
-    ['Acurácia',     d.acu],
-    ['Diretividade', d.dir],
-  ].map(([k,v]) => `<tr><td>${k}</td><td class="score-cell ${scoreClass(v)}">${v}</td></tr>`).join('');
-
-  const pre = document.createElement('pre');
-  pre.className = 'justification';
-  pre.textContent = d.just;
-
-  card.innerHTML = `
-    <div class="eval-head">
-      <h3>${judger} → ${target}</h3>
-      <div class="meta">Avaliação concluída.</div>
-    </div>
-    <table>
-      <thead><tr><th>Critério</th><th>Nota /10</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="just-label">Justificativa</div>
-  `;
-  card.appendChild(pre);
-}
-
-// ── API CALLS ─────────────────────────────────────────────────────────────────
-async function callGroq(messages, model) {
-  const key = getKey('groq');
-  if (!key) throw new Error('Groq: sem API key');
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: model || 'llama-3.3-70b-versatile', messages, max_tokens: 1024 })
+  dots.forEach(d => {
+    d.className = 'prog-dot';
+    d.style.background = '';
   });
-  if (!res.ok) { const e = await res.text(); throw new Error('Groq: ' + e.slice(0,120)); }
-  const j = await res.json();
-  return { text: j.choices[0].message.content, model: j.model };
+
+  if (state === 'loading') dots[0].classList.add('active');
+  if (state === 'ok') dots.forEach(d => d.classList.add('done'));
+  if (state === 'err') dots.forEach(d => d.style.background = '#ef4444');
 }
 
-async function callGemini(prompt) {
-  const key = getKey('gemini');
-  if (!key) throw new Error('Gemini: sem API key');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error('Gemini: ' + e.slice(0,120)); }
-  const j = await res.json();
-  return { text: j.candidates[0].content.parts[0].text, model: 'gemini-2.0-flash' };
-}
+// =========================
+// RENDER RESPOSTA
+// =========================
+function renderModel(id, text, model, ok) {
+  const body = document.getElementById(id + 'Resp');
+  const meta = document.getElementById(id + 'Meta');
+  const badge = document.getElementById(id + 'Model');
 
-async function callOpenAI(messages, model) {
-  const key = getKey('openai');
-  if (!key) throw new Error('OpenAI: sem API key');
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: model || 'gpt-4o-mini', messages, max_tokens: 1024 })
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error('OpenAI: ' + e.slice(0,120)); }
-  const j = await res.json();
-  return { text: j.choices[0].message.content, model: j.model };
-}
-
-async function callDeepSeek(messages, model) {
-  const key = getKey('deepseek');
-  if (!key) throw new Error('DeepSeek: sem API key');
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: model || 'deepseek-chat', messages, max_tokens: 1024 })
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error('DeepSeek: ' + e.slice(0,120)); }
-  const j = await res.json();
-  return { text: j.choices[0].message.content, model: j.model };
-}
-
-// ── MAIN ──────────────────────────────────────────────────────────────────────
-let results = {};
-
-async function callModel(name, fn, setters) {
-  const { metaEl, bodyEl, modelEl, progId } = setters;
-  metaEl.textContent = 'Consultando...';
-  bodyEl.innerHTML = '<div class="spin-wrap"><div class="spinner"></div> gerando resposta…</div>';
-  setProg(progId, 'loading');
-  try {
-    const r = await fn();
-    results[name] = r.text;
-    bodyEl.textContent = r.text;
-    modelEl.textContent = r.model || name;
-    metaEl.textContent = 'Resposta recebida.';
-    setProg(progId, 'ok');
-    return true;
-  } catch(e) {
-    results[name] = null;
-    bodyEl.textContent = '⚠ Erro: ' + e.message;
-    metaEl.textContent = 'Falha.';
-    setProg(progId, 'err');
-    return false;
+  if (ok) {
+    body.textContent = text || '—';
+    meta.textContent = 'Resposta recebida.';
+    badge.textContent = model || id;
+    setProg(id, 'ok');
+  } else {
+    body.textContent = text || 'Erro';
+    meta.textContent = 'Falha.';
+    setProg(id, 'err');
   }
 }
 
+// =========================
+// PARSE AVALIAÇÃO
+// =========================
+function parseEvaluation(text) {
+  if (!text || typeof text !== "string") return { erro: true };
+
+  try {
+    const get = (label) => {
+      const match = text.match(new RegExp(label + "\\s*:\\s*(\\d+)"));
+      return match ? parseInt(match[1]) : null;
+    };
+
+    const justificativaMatch = text.match(/Justificativa:\s*([\s\S]*)/);
+
+    return {
+      scores: {
+        relevancia: get("Relevância"),
+        profundidade: get("Profundidade"),
+        acuracia: get("Acurácia"),
+        diretividade: get("Diretividade"),
+      },
+      justificativa: justificativaMatch
+        ? justificativaMatch[1].trim()
+        : "—"
+    };
+
+  } catch {
+    return { erro: true };
+  }
+}
+
+// =========================
+// RENDER AVALIAÇÃO
+// =========================
+function renderEvaluation(cardId, rawText) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  const meta = card.querySelector(".meta");
+  const body = card.querySelector(".eval-body");
+
+  const parsed = parseEvaluation(rawText);
+
+  if (parsed.erro) {
+    meta.textContent = "Erro na avaliação";
+    body.textContent = rawText || "—";
+    return;
+  }
+
+  meta.textContent = "Avaliado";
+
+  const s = parsed.scores;
+
+  const scoreClass = (v) => {
+    if (v === null) return "score-na";
+    if (v >= 4) return "score-hi";
+    if (v >= 2) return "score-mid";
+    return "score-lo";
+  };
+
+  body.innerHTML = `
+    <table>
+      <tr><th>Critério</th><th>Nota</th></tr>
+      <tr><td>Relevância</td><td class="score-cell ${scoreClass(s.relevancia)}">${s.relevancia ?? '-'}</td></tr>
+      <tr><td>Profundidade</td><td class="score-cell ${scoreClass(s.profundidade)}">${s.profundidade ?? '-'}</td></tr>
+      <tr><td>Acurácia</td><td class="score-cell ${scoreClass(s.acuracia)}">${s.acuracia ?? '-'}</td></tr>
+      <tr><td>Diretividade</td><td class="score-cell ${scoreClass(s.diretividade)}">${s.diretividade ?? '-'}</td></tr>
+    </table>
+
+    <div class="just-label">Justificativa</div>
+    <div class="justification">${parsed.justificativa}</div>
+  `;
+}
+
+// =========================
+// SEND QUESTION
+// =========================
 async function sendQuestion() {
   const q = document.getElementById('question').value.trim();
-  if (!q) { setStatus('Digite uma pergunta.', 'aviso'); return; }
+
+  if (!q) {
+    setStatus('Digite uma pergunta.', 'aviso');
+    return;
+  }
 
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
-  results = {};
-  setStatus('Consultando os 4 modelos em paralelo...');
 
-  const msgs = [{ role: 'user', content: q }];
+  setStatus('Consultando backend...');
 
-  const [ok1, ok2, ok3, ok4] = await Promise.all([
-    callModel('groq', () => callGroq(msgs), {
-      metaEl: document.getElementById('groqMeta'),
-      bodyEl:  document.getElementById('groqResp'),
-      modelEl: document.getElementById('groqModel'),
-      progId:  'groq'
-    }),
-    callModel('gemini', () => callGemini(q), {
-      metaEl: document.getElementById('geminiMeta'),
-      bodyEl:  document.getElementById('geminiResp'),
-      modelEl: document.getElementById('geminiModel'),
-      progId:  'gemini'
-    }),
-    callModel('gpt', () => callOpenAI(msgs), {
-      metaEl: document.getElementById('gptMeta'),
-      bodyEl:  document.getElementById('gptResp'),
-      modelEl: document.getElementById('gptModel'),
-      progId:  'gpt'
-    }),
-    callModel('deepseek', () => callDeepSeek(msgs), {
-      metaEl: document.getElementById('deepseekMeta'),
-      bodyEl:  document.getElementById('deepseekResp'),
-      modelEl: document.getElementById('deepseekModel'),
-      progId:  'deepseek'
-    }),
-  ]);
+  ['groq','gemini','gpt','deepseek'].forEach(id => {
+    document.getElementById(id+'Meta').textContent = 'Consultando...';
+    document.getElementById(id+'Resp').innerHTML =
+      '<div class="spin-wrap"><div class="spinner"></div> gerando resposta…</div>';
+    setProg(id, 'loading');
+  });
 
-  const anyOk = ok1 || ok2 || ok3 || ok4;
-  if (!anyOk) { setStatus('Todos os modelos falharam. Verifique as API keys.', 'erro'); btn.disabled = false; return; }
+  try {
+    const res = await fetch('/gerar_respostas/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken(),
+      },
+      body: JSON.stringify({
+        pergunta: q,
+        api_keys: {
+          groq: getKey('groq'),
+          gemini: getKey('gemini'),
+          openai: getKey('openai'),
+          deepseek: getKey('deepseek')
+        }
+      })
+    });
 
-  setStatus('Respostas recebidas. Iniciando avaliações cruzadas...');
+    const data = await res.json();
 
-  // Build eval pairs
-  const models = [
-    { id: 'groq',     label: 'Groq',     call: (p) => callGroq([{role:'user',content:p}]) },
-    { id: 'gemini',   label: 'Gemini',   call: (p) => callGemini(p) },
-    { id: 'gpt',      label: 'ChatGPT',  call: (p) => callOpenAI([{role:'user',content:p}]) },
-    { id: 'deepseek', label: 'DeepSeek', call: (p) => callDeepSeek([{role:'user',content:p}]) },
-  ];
-
-  const evalTasks = [];
-  for (const judger of models) {
-    if (!results[judger.id]) continue;
-    for (const target of models) {
-      if (judger.id === target.id || !results[target.id]) continue;
-      const cardId = `eval-${judger.id}-${target.id}`;
-      const card = document.getElementById(cardId);
-      if (!card) continue;
-      card.querySelector('.meta').textContent = 'Avaliando...';
-      card.querySelector('.eval-body').innerHTML = '<div class="spin-wrap"><div class="spinner"></div> avaliando…</div>';
-      const prompt = evalPrompt(judger.label, target.label, results[target.id], q);
-      evalTasks.push(
-        judger.call(prompt).then(r => {
-          renderEval(cardId, judger.label, target.label, r.text);
-        }).catch(e => {
-          const c = document.getElementById(cardId);
-          if (c) { c.querySelector('.meta').textContent = 'Erro na avaliação.'; c.querySelector('.eval-body').textContent = '⚠ ' + e.message; }
-        })
-      );
+    if (!res.ok || data.status !== 'ok') {
+      throw new Error(data.mensagem || 'Erro no backend');
     }
+
+    // respostas
+    renderModel('groq', data.groq, data.groq_model, data.groq_ok);
+    renderModel('gemini', data.gemini, data.gemini_model, data.gemini_ok);
+    renderModel('gpt', data.chatgpt, data.chatgpt_model, data.chatgpt_ok);
+    renderModel('deepseek', data.deepseek, data.deepseek_model, data.deepseek_ok);
+
+    // =========================
+    // AVALIAÇÕES CORRETAS
+    // =========================
+
+    const ev = data.evaluations || {};
+
+    // GROQ avalia
+    renderEvaluation("eval-groq-gemini", ev.groq?.gemini);
+    renderEvaluation("eval-groq-gpt", ev.groq?.gpt);
+    renderEvaluation("eval-groq-deepseek", ev.groq?.deepseek);
+
+    // GEMINI avalia
+    renderEvaluation("eval-gemini-groq", ev.gemini?.groq);
+    renderEvaluation("eval-gemini-gpt", ev.gemini?.gpt);
+    renderEvaluation("eval-gemini-deepseek", ev.gemini?.deepseek);
+
+    // GPT avalia
+    renderEvaluation("eval-gpt-groq", ev.gpt?.groq);
+    renderEvaluation("eval-gpt-gemini", ev.gpt?.gemini);
+    renderEvaluation("eval-gpt-deepseek", ev.gpt?.deepseek);
+
+    // DEEPSEEK avalia
+    renderEvaluation("eval-deepseek-groq", ev.deepseek?.groq);
+    renderEvaluation("eval-deepseek-gemini", ev.deepseek?.gemini);
+    renderEvaluation("eval-deepseek-gpt", ev.deepseek?.gpt);
+
+    setStatus('Concluído.');
+
+  } catch (e) {
+    setStatus('Erro: ' + e.message, 'erro');
   }
 
-  await Promise.all(evalTasks);
-
-  const failed = [ok1,ok2,ok3,ok4].filter(v=>!v).length;
-  if (failed > 0) setStatus(`Concluído. ${failed} modelo(s) com falha.`, 'aviso');
-  else setStatus('Concluído. Todas as avaliações recebidas.');
   btn.disabled = false;
 }
 
-function clearResults() {
-  document.getElementById('question').value = '';
-  ['groq','gemini','gpt','deepseek'].forEach(id => {
-    document.getElementById(id+'Resp').textContent = '—';
-    document.getElementById(id+'Meta').textContent = 'Aguardando...';
-    document.getElementById(id+'Model').textContent = '—';
-    setProg(id, 'reset');
-  });
-  // clear eval cards
-  document.querySelectorAll('.eval-card').forEach(c => {
-    const h = c.querySelector('h3');
-    c.innerHTML = `<div class="eval-head"><h3>${h ? h.textContent : '—'}</h3><div class="meta">Aguardando avaliação...</div></div><div class="eval-body">—</div>`;
-  });
-  results = {};
-  setStatus('Pronto.');
-}
+// =========================
+// INIT
+// =========================
+window.onload = function() {
+  loadKeys();
+};
 
-// init
-loadKeys();
 </script>
+
+
 </body>
 </html>
