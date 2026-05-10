@@ -105,7 +105,14 @@ body::before {
   font-family: var(--mono);
 }
 
-.hdr-title { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1; }
+.hdr-title {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+  letter-spacing: 0;
+}
 .hdr-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .btn-keys {
@@ -123,6 +130,11 @@ body::before {
   white-space: nowrap;
 }
 .btn-keys:hover { background: rgba(0,220,130,0.14); border-color: var(--accent); }
+.btn-keys.is-open {
+  background: rgba(0,220,130,0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(0,220,130,0.12) inset;
+}
 
 /* API KEYS PANEL */
 .keys-panel {
@@ -146,6 +158,13 @@ body::before {
 .keys-title::after {
   content: ''; flex: 1; height: 1px;
   background: linear-gradient(to right, var(--border), transparent);
+}
+.keys-help {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: -8px 0 18px;
 }
 
 .keys-grid {
@@ -227,8 +246,13 @@ body::before {
 }
 
 .main-card h2 {
-  font-size: 26px; font-weight: 800;
-  color: var(--accent); margin-bottom: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.25;
+  letter-spacing: 0;
+  margin-bottom: 8px;
 }
 .main-card p {
   color: var(--muted); font-size: 14px;
@@ -252,6 +276,68 @@ textarea {
 textarea::placeholder { color: var(--muted); }
 textarea:focus { border-color: rgba(0,220,130,0.4); }
 
+.file-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.file-input { display: none; }
+.btn-file,
+.btn-file-remove {
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-file {
+  background: rgba(14,165,233,0.08);
+  border: 1px solid rgba(14,165,233,0.3);
+  color: #38bdf8;
+}
+.btn-file:hover {
+  background: rgba(14,165,233,0.16);
+  border-color: var(--accent2);
+  transform: translateY(-1px);
+}
+.file-info {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 9px;
+  background: rgba(0,0,0,0.22);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-info.has-file {
+  color: var(--text);
+  border-color: rgba(14,165,233,0.28);
+  background: rgba(14,165,233,0.06);
+}
+.btn-file-remove {
+  display: none;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171;
+}
+.btn-file-remove.show { display: inline-flex; }
+.btn-file-remove:hover {
+  background: rgba(239,68,68,0.16);
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
 .actions {
   margin-top: 14px;
   display: flex; gap: 10px; flex-wrap: wrap;
@@ -272,15 +358,20 @@ textarea:focus { border-color: rgba(0,220,130,0.4); }
 
 .btn-clear {
   padding: 12px 20px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.32);
   border-radius: 10px; cursor: pointer;
-  color: rgba(212,245,233,0.5);
+  color: #f87171;
   font-family: var(--mono); font-size: 13px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.06em;
   transition: all 0.2s;
 }
-.btn-clear:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.btn-clear:hover {
+  background: rgba(239,68,68,0.16);
+  border-color: #ef4444;
+  color: #fecaca;
+  transform: translateY(-1px);
+}
 
 .status-bar {
   margin-top: 14px;
@@ -455,8 +546,9 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
   .hdr { flex-wrap: wrap; padding: 16px; }
   .main-card { padding: 18px; }
   .resp-grid, .eval-grid { grid-template-columns: 1fr; }
-  .btn-send, .btn-clear { width: 100%; }
+  .btn-send, .btn-clear, .btn-file, .btn-file-remove, .file-info { width: 100%; }
   .actions { flex-direction: column; }
+  .file-upload { flex-direction: column; align-items: stretch; }
 }
 </style>
 </head>
@@ -483,12 +575,13 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
         <span class="hdr-sub">4 modelos · avaliação cruzada entre pares</span>
       </div>
     </div>
-    <button class="btn-keys" onclick="toggleKeys()">⚙ API Keys</button>
+    <button class="btn-keys" id="toggleKeysBtn" type="button" onclick="toggleKeys()" aria-controls="keysPanel" aria-expanded="false">▸ Mostrar API Keys</button>
   </div>
 
   <!-- API KEYS PANEL -->
   <div class="keys-panel" id="keysPanel">
     <div class="keys-title">Configurar Chaves de API</div>
+    <p class="keys-help">As chaves ficam ocultas por padrão. Depois de configurar, clique em “Ocultar API Keys” para recolher este painel.</p>
     <div class="keys-grid">
       <div class="key-row">
         <div class="key-label">
@@ -544,6 +637,13 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
     <p>Envie uma pergunta para Groq, Gemini, ChatGPT e DeepSeek ao mesmo tempo. Depois, cada modelo avalia a resposta dos outros.</p>
 
     <textarea id="question" placeholder="Ex.: Explique a diferença entre FastAPI e Flask."></textarea>
+
+    <div class="file-upload">
+      <input class="file-input" id="questionFile" type="file" accept=".txt,.json,text/plain,application/json" onchange="handleQuestionFile(this)">
+      <button class="btn-file" type="button" onclick="document.getElementById('questionFile').click()">+ Anexar TXT/JSON</button>
+      <div class="file-info" id="fileInfo">Nenhum arquivo anexado.</div>
+      <button class="btn-file-remove" id="removeFileBtn" type="button" onclick="clearQuestionFile()">✕ Remover arquivo</button>
+    </div>
 
     <div class="actions">
       <button class="btn-send" id="sendBtn" onclick="sendQuestion()">▶ Enviar pergunta</button>
@@ -615,7 +715,7 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
     <!-- AVALIAÇÕES -->
     <div class="section-hdr"><span>Avaliações cruzadas</span></div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px;font-family:var(--mono)">
-      Cada modelo avalia as respostas dos outros 3 nos critérios: Relevância, Profundidade, Acurácia, Diretividade (0–10).
+      Cada modelo avalia as respostas dos outros 3 nos critérios: Relevância, Profundidade, Acurácia, Diretividade, em escala Likert (0–5).
     </p>
 
     <!-- Avaliações do Groq -->
@@ -660,12 +760,105 @@ td { color: rgba(212,245,233,0.75); font-family: var(--mono); }
 // STORAGE KEYS
 // =========================
 const STORAGE_KEY = "judgeai_apikeys";
+const MAX_QUESTION_FILE_SIZE = 200 * 1024;
+const ALLOWED_QUESTION_FILE_EXTS = ["txt", "json"];
+let attachedQuestionFile = null;
 
 // =========================
 // GET KEY
 // =========================
 function getKey(name) {
   return document.getElementById("key-" + name)?.value || "";
+}
+
+// =========================
+// QUESTION FILE
+// =========================
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function getFileExt(fileName) {
+  return (fileName.split(".").pop() || "").toLowerCase();
+}
+
+function updateQuestionFileUI() {
+  const info = document.getElementById("fileInfo");
+  const removeBtn = document.getElementById("removeFileBtn");
+  if (!info || !removeBtn) return;
+
+  if (!attachedQuestionFile) {
+    info.textContent = "Nenhum arquivo anexado.";
+    info.classList.remove("has-file");
+    removeBtn.classList.remove("show");
+    return;
+  }
+
+  info.textContent = `${attachedQuestionFile.name} · ${formatBytes(attachedQuestionFile.size)}`;
+  info.classList.add("has-file");
+  removeBtn.classList.add("show");
+}
+
+async function handleQuestionFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const ext = getFileExt(file.name);
+  if (!ALLOWED_QUESTION_FILE_EXTS.includes(ext)) {
+    clearQuestionFile(false);
+    setStatus("Anexe apenas arquivos .txt ou .json.", "aviso");
+    return;
+  }
+
+  if (file.size > MAX_QUESTION_FILE_SIZE) {
+    clearQuestionFile(false);
+    setStatus(`Arquivo muito grande. Limite: ${formatBytes(MAX_QUESTION_FILE_SIZE)}.`, "aviso");
+    return;
+  }
+
+  try {
+    let content = await file.text();
+
+    if (ext === "json") {
+      content = JSON.stringify(JSON.parse(content), null, 2);
+    }
+
+    attachedQuestionFile = {
+      name: file.name,
+      size: file.size,
+      ext,
+      content
+    };
+
+    updateQuestionFileUI();
+    setStatus(`Arquivo anexado: ${file.name}.`);
+  } catch (e) {
+    clearQuestionFile(false);
+    setStatus(ext === "json" ? "JSON inválido. Verifique o arquivo." : "Não foi possível ler o arquivo.", "erro");
+  }
+}
+
+function clearQuestionFile(showStatus = true) {
+  attachedQuestionFile = null;
+
+  const input = document.getElementById("questionFile");
+  if (input) input.value = "";
+
+  updateQuestionFileUI();
+  if (showStatus) setStatus("Arquivo removido.", "aviso");
+}
+
+function buildQuestionPrompt(questionText) {
+  if (!attachedQuestionFile) return questionText;
+
+  const baseQuestion = questionText || "Analise o conteúdo do arquivo anexado.";
+  return `${baseQuestion}
+
+--- Arquivo anexado: ${attachedQuestionFile.name} (${attachedQuestionFile.ext.toUpperCase()}) ---
+${attachedQuestionFile.content}
+--- Fim do arquivo anexado ---`;
 }
 
 // =========================
@@ -687,8 +880,19 @@ function toggleEye(inputId, btn) {
 // =========================
 // TOGGLE PANEL
 // =========================
+function updateKeysToggle(isOpen) {
+  const btn = document.getElementById("toggleKeysBtn");
+  if (!btn) return;
+
+  btn.textContent = isOpen ? "▾ Ocultar API Keys" : "▸ Mostrar API Keys";
+  btn.setAttribute("aria-expanded", String(isOpen));
+  btn.classList.toggle("is-open", isOpen);
+}
+
 function toggleKeys() {
-  document.getElementById("keysPanel").classList.toggle("open");
+  const panel = document.getElementById("keysPanel");
+  const isOpen = panel.classList.toggle("open");
+  updateKeysToggle(isOpen);
 }
 
 // =========================
@@ -875,7 +1079,7 @@ function renderEvaluation(cardId, rawText) {
 
   body.innerHTML = `
     <table>
-      <tr><th>Critério</th><th>Nota</th></tr>
+      <tr><th>Critério</th><th>Nota Likert</th></tr>
       <tr><td>Relevância</td><td class="score-cell ${scoreClass(s.relevancia)}">${s.relevancia ?? '-'}</td></tr>
       <tr><td>Profundidade</td><td class="score-cell ${scoreClass(s.profundidade)}">${s.profundidade ?? '-'}</td></tr>
       <tr><td>Acurácia</td><td class="score-cell ${scoreClass(s.acuracia)}">${s.acuracia ?? '-'}</td></tr>
@@ -888,13 +1092,36 @@ function renderEvaluation(cardId, rawText) {
 }
 
 // =========================
+// CLEAR FORM
+// =========================
+function clearResults() {
+  document.getElementById('question').value = '';
+  clearQuestionFile(false);
+
+  ['groq','gemini','gpt','deepseek'].forEach(id => {
+    document.getElementById(id+'Meta').textContent = 'Aguardando...';
+    document.getElementById(id+'Resp').textContent = '—';
+    document.getElementById(id+'Model').textContent = '—';
+    setProg(id, '');
+  });
+
+  document.querySelectorAll('.eval-card').forEach(card => {
+    card.querySelector('.meta').textContent = 'Aguardando avaliação...';
+    card.querySelector('.eval-body').textContent = '—';
+  });
+
+  setStatus('Pronto.');
+}
+
+// =========================
 // SEND QUESTION
 // =========================
 async function sendQuestion() {
   const q = document.getElementById('question').value.trim();
+  const questionPayload = buildQuestionPrompt(q);
 
-  if (!q) {
-    setStatus('Digite uma pergunta.', 'aviso');
+  if (!questionPayload.trim()) {
+    setStatus('Digite uma pergunta ou anexe um arquivo.', 'aviso');
     return;
   }
 
@@ -918,7 +1145,7 @@ async function sendQuestion() {
         'X-CSRFToken': getCSRFToken(),
       },
       body: JSON.stringify({
-        pergunta: q,
+        pergunta: questionPayload,
         api_keys: {
           groq: getKey('groq'),
           gemini: getKey('gemini'),
@@ -980,6 +1207,8 @@ async function sendQuestion() {
 // =========================
 window.onload = function() {
   loadKeys();
+  updateKeysToggle(document.getElementById("keysPanel").classList.contains("open"));
+  updateQuestionFileUI();
 };
 
 </script>
